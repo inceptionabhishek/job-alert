@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
+
+
+def redact(value: object) -> str:
+    return re.sub(r"(api\.telegram\.org/bot)[^/\s]+", r"\1[REDACTED]", str(value))
 
 
 class HttpClient:
@@ -32,13 +37,12 @@ class HttpClient:
                 if attempt >= self.retries:
                     break
                 delay = self.backoff * (2**attempt)
-                logger.warning("Request failed for %s; retrying in %.1fs (%s)", url, delay, exc)
+                logger.warning("Request failed for %s; retrying in %.1fs (%s)", redact(url), delay, redact(exc))
                 time.sleep(delay)
-        raise RuntimeError(f"Request failed after {self.retries + 1} attempts: {url}: {last_error}")
+        raise RuntimeError(f"Request failed after {self.retries + 1} attempts: {redact(url)}: {redact(last_error)}") from None
 
     def get_json(self, url: str) -> Any:
         return json.loads(self.request(url).decode("utf-8"))
 
     def get_text(self, url: str) -> str:
         return self.request(url).decode("utf-8", errors="replace")
-

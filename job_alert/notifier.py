@@ -39,12 +39,18 @@ class TelegramNotifier:
         self.http = http
 
     def send(self, job: Job, match: MatchResult) -> None:
-        url = f"https://api.telegram.org/bot{quote(self.token, safe='')}/sendMessage"
-        payload = json.dumps({
-            "chat_id": self.chat_id,
-            "text": format_message(job, match),
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }).encode("utf-8")
-        self.http.request(url, data=payload, headers={"Content-Type": "application/json"})
+        self.send_text(format_message(job, match), html=True)
 
+    def send_text(self, text: str, *, html: bool = False) -> None:
+        url = f"https://api.telegram.org/bot{quote(self.token, safe='')}/sendMessage"
+        message = {
+            "chat_id": self.chat_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if html:
+            message["parse_mode"] = "HTML"
+        payload = json.dumps(message).encode("utf-8")
+        response = json.loads(self.http.request(url, data=payload, headers={"Content-Type": "application/json"}))
+        if not response.get("ok"):
+            raise RuntimeError("Telegram rejected the message")

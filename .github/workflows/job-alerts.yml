@@ -1,0 +1,61 @@
+name: Job alerts
+on:
+  schedule:
+    - cron: '30 3 * * *'   # 09:00 IST (UTC +05:30)
+    - cron: '30 14 * * *'  # 20:00 IST
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: job-alert-state
+  cancel-in-progress: false
+jobs:
+  check-jobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      STATE_DIR: ${{ runner.temp }}/job-alert-state
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: Restore durable history
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo 'Missing TELEGRAM_BOT_TOKEN secret'; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo 'Missing TELEGRAM_CHAT_ID secret'; exit 1; }
+          git init --initial-branch=job-alert-state "$STATE_DIR"
+          git -C "$STATE_DIR" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -C "$STATE_DIR" config credential.helper '!gh auth git-credential'
+          git -C "$STATE_DIR" config user.name 'github-actions[bot]'
+          git -C "$STATE_DIR" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          remote_ref=$(git -C "$STATE_DIR" ls-remote origin refs/heads/job-alert-state)
+          if [ -n "$remote_ref" ]; then
+            git -C "$STATE_DIR" fetch --depth=1 origin job-alert-state
+            git -C "$STATE_DIR" checkout -B job-alert-state FETCH_HEAD
+          fi
+      - name: Fetch jobs and send Telegram updates
+        run: python -m job_alert.scheduled --config config.toml --state-dir "$STATE_DIR"
+      - name: Save history even if a source or Telegram failed
+        if: ${{ always() && steps.state.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$STATE_DIR/jobs.db" ]; then
+            git -C "$STATE_DIR" add jobs.db
+            if [ -f "$STATE_DIR/initialized" ]; then
+              git -C "$STATE_DIR" add initialized
+            fi
+            if ! git -C "$STATE_DIR" diff --cached --quiet; then
+              git -C "$STATE_DIR" commit -m 'Update job alert history'
+              git -C "$STATE_DIR" push origin HEAD:job-alert-state
+            fi
+          fi
