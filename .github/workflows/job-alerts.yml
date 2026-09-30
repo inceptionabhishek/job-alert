@@ -17,8 +17,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      STATE_DIR: ${{ runner.temp }}/job-alert-state
     steps:
+      - name: Configure state directory
+        shell: bash
+        run: echo "STATE_DIR=$RUNNER_TEMP/job-alert-state" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
