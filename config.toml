@@ -13,17 +13,17 @@ user_agent = "PersonalJobAlert/0.1 (personal use)"
 enabled = true
 
 [matching]
-title_keywords = ["software engineer ii", "software development engineer ii", "sde ii", "sde 2", "backend engineer", "backend developer"]
+title_keywords = ["software engineer ii", "software development engineer ii", "software dev engineer ii", "sde ii", "sde 2", "backend engineer", "backend software engineer", "backend developer"]
 include_keywords = ["backend", "distributed systems", "api", "microservices"]
 exclude_title_keywords = ["intern", "internship", "staff", "principal", "director", "manager", "full stack", "full-stack"]
 exclude_keywords = []
 skills = ["python", "java", "golang", "go", "c++", "aws", "kubernetes"]
-locations = ["bengaluru", "bangalore", "remote", "india"]
+locations = ["india", "bengaluru", "bangalore", "hyderabad", "chennai", "pune", "gurugram", "gurgaon", "noida", "delhi", "mumbai"]
 min_years = 1
 max_years = 5
 minimum_score = 4
 require_title_keyword = true
-allow_unknown_location = true
+allow_unknown_location = false
 
 # Copy and edit any of these examples. Only enabled sources are fetched.
 [[sources]]

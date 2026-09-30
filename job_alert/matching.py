@@ -14,7 +14,9 @@ YEAR_PATTERNS = [
 
 def _hits(needles: list[str], text: str) -> list[str]:
     lower = text.casefold()
-    return [needle for needle in needles if needle.casefold() in lower]
+    return [needle for needle in needles if re.search(
+        r"(?<!\w)" + re.escape(needle.casefold()).replace(r"\ ", r"\s+") + r"(?!\w)", lower
+    )]
 
 
 def extract_years(text: str) -> tuple[int, int | None] | None:
@@ -28,7 +30,7 @@ def extract_years(text: str) -> tuple[int, int | None] | None:
 
 
 def match_job(job: Job, config: dict[str, Any]) -> MatchResult:
-    title = job.title.casefold()
+    title = re.sub(r"\s*[-–—]\s*", " ", job.title.casefold())
     body = f"{job.title} {job.description}".casefold()
     title_hits = _hits(config.get("title_keywords", []), title)
     exclude_hits = _hits(config.get("exclude_title_keywords", []), title)
@@ -68,5 +70,9 @@ def match_job(job: Job, config: dict[str, Any]) -> MatchResult:
         reasons.append(f"location: {', '.join(location_hits)}")
     if years:
         reasons.append(f"experience: {years[0]}-{years[1] or '+'} years")
+    else:
+        reasons.append("experience: unknown (manual review)")
     minimum = int(config.get("minimum_score", 4))
+    if score < minimum:
+        reasons.append(f"score {score} below minimum {minimum}")
     return MatchResult(score >= minimum, score, reasons or ["no positive signals"])

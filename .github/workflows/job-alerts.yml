@@ -61,3 +61,18 @@ jobs:
               git -C "$STATE_DIR" push origin HEAD:job-alert-state
             fi
           fi
+      - name: Export saved-job report
+        if: ${{ always() && steps.state.outcome == 'success' }}
+        shell: bash
+        run: |
+          if [ -f "$STATE_DIR/jobs.db" ]; then
+            python -m job_alert --config config.toml export-report --database "$STATE_DIR/jobs.db" --output reports
+          fi
+      - name: Upload HTML and CSV report
+        if: ${{ always() && steps.state.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-report
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 7

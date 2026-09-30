@@ -9,6 +9,7 @@ from .config import load_config
 from .http import HttpClient
 from .runner import run
 from .storage import JobStore
+from .report import export_report
 
 
 def parser() -> argparse.ArgumentParser:
@@ -23,6 +24,9 @@ def parser() -> argparse.ArgumentParser:
     baseline = commands.add_parser("baseline-source", help="Save one source's current jobs without sending alerts")
     baseline.add_argument("source", help="Enabled source name")
     commands.add_parser("init-db", help="Create the SQLite database schema")
+    report = commands.add_parser("export-report", help="Export saved jobs; no fetching, alerts, or database changes")
+    report.add_argument("--database", help="SQLite snapshot to read instead of configured database")
+    report.add_argument("--output", default="reports", help="Output directory")
     return root
 
 
@@ -37,6 +41,16 @@ def main(argv: list[str] | None = None) -> int:
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    if args.command == "export-report":
+        from pathlib import Path
+        try:
+            count = export_report(Path(args.database) if args.database else settings.database_path,
+                                  Path(args.output), settings.matching)
+        except (OSError, ValueError) as exc:
+            print(f"Report error: {exc}", file=sys.stderr)
+            return 2
+        print(f"Exported {count} saved jobs to {args.output}/jobs.html and jobs.csv")
+        return 0
     if args.command == "init-db":
         JobStore(settings.database_path).initialize()
         print(f"Initialized database: {settings.database_path}")

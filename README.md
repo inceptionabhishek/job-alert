@@ -140,6 +140,29 @@ Job history is stored on a separate `job-alert-state` branch (not an expiring Ac
 
 No extra hosting, paid APIs, artifacts, or cache storage are required. Standard Linux Actions runners are free for public repositories; GitHub Free includes 2,000 monthly Actions minutes for private repositories, shared with your other workflows. A 15-minute cap per run limits normal twice-daily use to at most 930 runner minutes in a 31-day month (plus manual runs). For a strict zero-cost setup, keep paid overages disabled/set an enforced spending budget and monitor total account usage in GitHub Billing. GitHub can pause execution when the free allowance is exhausted. Never commit `.env`; use the two repository secrets above.
 
+## Browse saved jobs (HTML + CSV)
+
+After a workflow finishes, open **Actions → Job alerts → the latest run → Artifacts → job-report**. Download and unzip it, then open `jobs.html` in your browser. Keep `jobs.csv` next to it for the CSV download link. Reports are retained for 7 days and regenerated each run; the database history does not expire. These small artifacts use your GitHub storage allowance. This is an offline report, not a hosted or publicly published website. No external scripts or internet connection are needed to browse it.
+
+Matching jobs are shown initially. Search covers the title, company, description and reasons; selectors filter matching/rejected jobs, source, location and alert status. Switch to **All jobs** to browse everything, including the initial baseline. Application links open the source website. Saved listings can have closed since their last check.
+
+Generate a local report from your own database or a downloaded snapshot:
+
+```bash
+python -m job_alert --config config.toml export-report --output reports
+python -m job_alert --config config.toml export-report --database /path/to/jobs.db --output reports
+```
+
+Reports re-evaluate every stored job against the **current** config and show the score and reasons. `saved_match` is the original persisted decision, while `current_match` reflects current rules. Exporting does not fetch sources, send notifications, change records or replay old alerts. CSV includes the full description, identifiers, first/last-seen timestamps, baseline and alert timestamps. CSV values that could act as spreadsheet formulas are prefixed with an apostrophe.
+
+## Tune matching
+
+Start with rejected jobs and inspect their reasons. Edit `[matching]` in `config.toml`, export again, and compare current versus saved decisions. Commit/push the config so Actions uses it. History and previous alerts are preserved; report re-evaluation is for review, not an automatic backfill of old rejected jobs.
+
+The September 2026 review of 164 saved jobs found false level-II matches for level-III titles, and missed Amazon `Engineer - II`/`Software Dev Engineer II` variants. Keywords now use word boundaries (so `go` no longer matches `ongoing`, or `java` matches `javascript`), and title separators are normalized. The live config adds the missing level-II title variants and restricts locations to India and listed Indian cities; unknown locations and foreign-only remote listings are excluded. Add other Indian city spellings as needed. Title exclusions continue to suppress staff/principal/manager/intern/full-stack roles.
+
+Experience remains a lightweight heuristic, not a perfect reading of every qualification: detected ranges outside 1–5 years reject a job, while missing recognizable experience is allowed and explicitly marked **unknown (manual review)**. Skills/include keywords contribute to a score; they are not mandatory individually. Generic level-II roles may therefore pass without a backend-specific title. Review the full JD before applying. Reports are a useful audit aid, not a claim of perfect fit.
+
 ## Local scheduling alternative
 
 On an always-on machine, cron is more deterministic. For 09:00 and 20:00 in the machine's local timezone:

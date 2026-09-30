@@ -48,6 +48,28 @@ class MatchingTests(unittest.TestCase):
     def test_extract_year_range(self):
         self.assertEqual(extract_years("Requires 2-4 years of work"), (2, 4))
 
+    def test_level_three_is_not_level_two(self):
+        for title in ["Software Engineer III", "SDE III - AI Platform"]:
+            config = dict(CONFIG, title_keywords=["software engineer ii", "sde ii"])
+            self.assertFalse(match_job(self.make_job(title=title), config).matched)
+
+    def test_hyphenated_level_two_matches(self):
+        config = dict(CONFIG, title_keywords=["software development engineer ii"])
+        self.assertTrue(match_job(self.make_job(title="Software Development Engineer - II"), config).matched)
+
+    def test_short_skill_does_not_match_inside_words(self):
+        config = dict(CONFIG, skills=["go", "java"], include_keywords=[])
+        result = match_job(self.make_job(description="Ongoing JavaScript development."), config)
+        self.assertFalse(any(reason.startswith("skills:") for reason in result.reasons))
+
+    def test_unknown_experience_is_flagged(self):
+        result = match_job(self.make_job(description="Backend Python APIs."), CONFIG)
+        self.assertIn("experience: unknown (manual review)", result.reasons)
+
+    def test_non_indian_remote_is_rejected(self):
+        config = dict(CONFIG, locations=["india", "bangalore"], allow_unknown_location=False)
+        self.assertFalse(match_job(self.make_job(location="Remote US"), config).matched)
+
 
 if __name__ == "__main__":
     unittest.main()
