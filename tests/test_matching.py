@@ -70,6 +70,21 @@ class MatchingTests(unittest.TestCase):
         config = dict(CONFIG, locations=["india", "bangalore"], allow_unknown_location=False)
         self.assertFalse(match_job(self.make_job(location="Remote US"), config).matched)
 
+    def test_live_config_any_location_and_under_three(self):
+        from pathlib import Path
+        from job_alert.config import load_config
+        config = load_config(Path(__file__).resolve().parents[1] / "config.toml").matching
+        for title in ["Software Engineer", "SDE I", "Frontend Engineer", "Full-stack Developer"]:
+            for description in ["2 years of software development experience", "2.5+ years experience", "No experience required"]:
+                self.assertTrue(match_job(self.make_job(title=title, location="London", description=description), config).matched)
+        for description in ["3+ years experience", "At least 4 years experience", "Python APIs", "1+ years Java. 5+ years programming."]:
+            self.assertFalse(match_job(self.make_job(description=description), config).matched)
+
+    def test_multiple_requirements_use_highest_minimum(self):
+        self.assertEqual(extract_years("1+ years of Java and 5+ years of programming."), (5, None))
+        self.assertEqual(extract_years("2-4 years experience"), (2, 4))
+        self.assertEqual(extract_years("2.5 years of professional experience"), (2.5, None))
+
 
 if __name__ == "__main__":
     unittest.main()

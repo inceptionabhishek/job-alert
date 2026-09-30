@@ -13,17 +13,18 @@ user_agent = "PersonalJobAlert/0.1 (personal use)"
 enabled = true
 
 [matching]
-title_keywords = ["Enginner","software engineer","software engineer ii", "sde1","software development engineer ii", "software dev engineer ii", "sde ii", "sde 2", "backend engineer", "backend software engineer", "backend developer"]
+title_keywords = ["software engineer", "software engineering", "software development engineer", "software dev engineer", "software developer", "sde", "sde1", "sde2", "swe", "backend engineer", "backend software engineer", "backend developer", "frontend engineer", "frontend developer", "front end engineer", "full stack engineer", "fullstack engineer", "full stack developer"]
 include_keywords = ["frontend","systems","ui","ai","backend", "distributed systems", "api", "microservices"]
-exclude_title_keywords = ["intern", "internship", "staff", "principal", "director", "manager", "full stack", "full-stack"]
+exclude_title_keywords = ["intern", "internship", "director", "manager"]
 exclude_keywords = []
 skills = ["python", "java", "golang", "go", "c++", "aws", "kubernetes"]
-locations = ["india", "bengaluru", "bangalore", "hyderabad", "chennai", "pune", "gurugram", "gurgaon", "noida", "delhi", "mumbai"]
-min_years = 1
-max_years = 5
-minimum_score = 4
+locations = [] # No location restriction at the matching stage.
+min_years = 0
+max_years_exclusive = 3 # Minimum required experience must be strictly below 3.
+allow_unknown_experience = false
+minimum_score = 3 # A target role alone qualifies; no mandatory skill/backend keyword.
 require_title_keyword = true
-allow_unknown_location = false
+allow_unknown_location = true
 
 # Copy and edit any of these examples. Only enabled sources are fetched.
 [[sources]]
@@ -63,7 +64,9 @@ enabled = true
 [[sources]]
 name = "Amazon Jobs"
 type = "amazon"
-search_queries = ["software development engineer ii", "backend engineer"]
+search_queries = ["software"]
+country = "" # Empty means all countries.
 page_size = 50
-max_pages = 10
+max_pages = 20
+allow_truncated = true # Check the newest 1,000 results; log if older results are omitted.
 enabled = true

@@ -14,7 +14,7 @@ SITE_URL = "https://www.amazon.jobs"
 
 
 class AmazonAdapter(SourceAdapter):
-    """Read the public Amazon Jobs search response for India."""
+    """Read the public Amazon Jobs search response, optionally country-filtered."""
 
     def fetch(self) -> list[Job]:
         queries = self.config.get("search_queries", ["software development engineer ii", "backend engineer"])
@@ -26,16 +26,18 @@ class AmazonAdapter(SourceAdapter):
             raise ValueError(f"{self.name}: page_size must be 1-50 and max_pages must be 1-20")
 
         jobs: dict[str, Job] = {}
+        country = str(self.config.get("country", "IND")).upper().strip()
         for query in queries:
             offset = 0
             for page in range(max_pages):
                 parameters = {
                     "base_query": query,
-                    "country": "IND",
                     "sort": "recent",
                     "offset": offset,
                     "result_limit": page_size,
                 }
+                if country:
+                    parameters["country"] = country
                 payload = self.http.get_json(f"{SEARCH_URL}?{urlencode(parameters)}")
                 if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
                     raise ValueError(f"{self.name}: Amazon search response did not contain a jobs list")
@@ -43,7 +45,7 @@ class AmazonAdapter(SourceAdapter):
                     raise ValueError(f"{self.name}: Amazon search returned an error: {payload['error']}")
                 results = payload["jobs"]
                 for item in results:
-                    if not isinstance(item, dict) or item.get("country_code") != "IND":
+                    if not isinstance(item, dict) or (country and item.get("country_code") != country):
                         continue
                     external_id = str(item.get("id_icims") or item.get("id") or "")
                     path = str(item.get("job_path") or "")
@@ -51,12 +53,13 @@ class AmazonAdapter(SourceAdapter):
                         logger.warning("Skipping Amazon result without a usable ID, title, or job path")
                         continue
                     location = str(item.get("location") or "").strip()
-                    if location.startswith("IN, "):
-                        location = location[4:].strip()
-                    if not location:
-                        location = "India"
-                    elif "india" not in location.casefold():
-                        location = f"{location}, India"
+                    if item.get("country_code") == "IND":
+                        if location.startswith("IN, "):
+                            location = location[4:].strip()
+                        if not location:
+                            location = "India"
+                        elif "india" not in location.casefold():
+                            location = f"{location}, India"
                     description = "\n\n".join(filter(None, [
                         plain_text(item.get("description")),
                         plain_text(item.get("basic_qualifications")),
@@ -77,6 +80,10 @@ class AmazonAdapter(SourceAdapter):
                 if not results or offset >= total:
                     break
                 if page == max_pages - 1:
+                    if self.config.get("allow_truncated", False):
+                        logger.warning("%s: checked newest %d of %d results for %r; older results omitted",
+                                       self.name, offset, total, query)
+                        break
                     raise ValueError(
                         f"{self.name}: search for {query!r} has {total} results, but max_pages={max_pages} "
                         "would truncate them; increase max_pages"

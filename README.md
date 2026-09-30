@@ -161,6 +161,10 @@ CRED is enabled through the existing Lever adapter (`site = "cred"`), using the 
 
 ## Tune matching
 
+**Current preferences:** software engineering roles across levels (including frontend/backend/full-stack), any location, and minimum stated experience strictly below 3 years. `max_years_exclusive = 3` rejects 3+; `allow_unknown_experience = false` rejects missing/unrecognized experience. Multiple recognized requirements use the highest minimum. A 2–4-year range has a minimum of 2 and is eligible; this is not a promise that every requirement has been understood. Title exclusions still remove internships and management. Skills and backend keywords are scoring signals, not mandatory. These current settings supersede the earlier India/SDE2/1–5-year review below.
+
+Amazon now uses the broader `software` search across all countries (`country = ""`). Each run checks up to the newest 1,000 results, explicitly logging any truncation; it does not promise exhaustive worldwide historical coverage. Other configured boards retain their own published coverage. Setting a country code restores a country filter. Existing alert history is not reset by these changes.
+
 Start with rejected jobs and inspect their reasons. Edit `[matching]` in `config.toml`, export again, and compare current versus saved decisions. Commit/push the config so Actions uses it. History and previous alerts are preserved; report re-evaluation is for review, not an automatic backfill of old rejected jobs.
 
 The September 2026 review of 164 saved jobs found false level-II matches for level-III titles, and missed Amazon `Engineer - II`/`Software Dev Engineer II` variants. Keywords now use word boundaries (so `go` no longer matches `ongoing`, or `java` matches `javascript`), and title separators are normalized. The live config adds the missing level-II title variants and restricts locations to India and listed Indian cities; unknown locations and foreign-only remote listings are excluded. Add other Indian city spellings as needed. Title exclusions continue to suppress staff/principal/manager/intern/full-stack roles.

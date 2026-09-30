@@ -20,6 +20,18 @@ class FakeHttp:
 
 
 class AdapterTests(unittest.TestCase):
+    def test_amazon_global_search_and_explicit_cap(self):
+        class GlobalHttp:
+            def get_json(self, url):
+                assert "country" not in parse_qs(urlsplit(url).query)
+                return {"hits": 2000, "jobs": [{"id_icims": "us-1", "country_code": "USA",
+                        "title": "Software Engineer", "location": "US, WA, Seattle",
+                        "job_path": "/en/jobs/us-1/software-engineer"}]}
+        jobs = AmazonAdapter({"name": "Amazon", "country": "", "search_queries": ["software"],
+                              "page_size": 1, "max_pages": 1, "allow_truncated": True}, GlobalHttp()).fetch()
+        self.assertEqual(len(jobs), 1)
+        self.assertNotIn("India", jobs[0].location)
+
     def test_cred_lever_mapping_includes_qualification_sections(self):
         item = {
             "id": "cred-job-1", "text": "Backend Engineer", "categories": {"location": "bengaluru"},

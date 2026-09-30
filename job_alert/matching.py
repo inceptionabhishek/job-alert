@@ -6,9 +6,10 @@ from typing import Any
 from .models import Job, MatchResult
 
 YEAR_PATTERNS = [
-    re.compile(r"\b(\d{1,2})\s*(?:-|–|to)\s*(\d{1,2})\s*(?:\+\s*)?years?\b", re.I),
-    re.compile(r"\b(\d{1,2})\+\s*years?\b", re.I),
-    re.compile(r"\b(?:minimum|min\.?|at least)\s+(\d{1,2})\s*years?\b", re.I),
+    re.compile(r"\b(\d{1,2}(?:\.\d+)?)\s*(?:-|–|to)\s*(\d{1,2}(?:\.\d+)?)\s*(?:\+\s*)?years?\b", re.I),
+    re.compile(r"\b(\d{1,2}(?:\.\d+)?)\+\s*years?\b", re.I),
+    re.compile(r"\b(?:minimum|min\.?|at least)\s+(\d{1,2}(?:\.\d+)?)\s*years?\b", re.I),
+    re.compile(r"\b(\d{1,2}(?:\.\d+)?)\s*years?\s+(?:of\s+)?(?:[a-z-]+\s+){0,8}experience\b", re.I),
 ]
 
 
@@ -19,13 +20,23 @@ def _hits(needles: list[str], text: str) -> list[str]:
     )]
 
 
-def extract_years(text: str) -> tuple[int, int | None] | None:
+def extract_years(text: str) -> tuple[float, float | None] | None:
+    candidates = []
+    spans = []
+    def number(value):
+        numeric = float(value)
+        return int(numeric) if numeric.is_integer() else numeric
     for index, pattern in enumerate(YEAR_PATTERNS):
-        match = pattern.search(text)
-        if match:
-            if index == 0:
-                return int(match.group(1)), int(match.group(2))
-            return int(match.group(1)), None
+        for match in pattern.finditer(text):
+            if any(match.start() < end and match.end() > start for start, end in spans):
+                continue
+            spans.append(match.span())
+            candidates.append((number(match.group(1)), number(match.group(2)) if index == 0 else None))
+    if candidates:
+        # Avoid accepting 1+ years in one skill when another requirement says 5+.
+        return max(candidates, key=lambda years: years[0])
+    if re.search(r"\bno (?:prior |professional |work )?experience (?:is )?(?:required|necessary)\b", text, re.I):
+        return (0, 0)
     return None
 
 
@@ -48,9 +59,14 @@ def match_job(job: Job, config: dict[str, Any]) -> MatchResult:
         return MatchResult(False, 0, ["location unavailable"])
 
     years = extract_years(body)
+    if not years and not config.get("allow_unknown_experience", True):
+        return MatchResult(False, 0, ["experience unavailable; explicit requirement needed"])
     target_min = int(config.get("min_years", 0))
     target_max = int(config.get("max_years", 99))
     if years:
+        exclusive = config.get("max_years_exclusive")
+        if exclusive is not None and years[0] >= float(exclusive):
+            return MatchResult(False, 0, [f"minimum required experience {years[0]} years is not below {exclusive}"])
         found_min, found_max = years
         found_max = found_max if found_max is not None else 99
         if found_min > target_max or found_max < target_min:
