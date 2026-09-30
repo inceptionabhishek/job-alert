@@ -1,0 +1,60 @@
+[app]
+database_path = "data/jobs.db"
+log_level = "INFO"
+dry_run = false
+
+[http]
+timeout_seconds = 20
+retries = 2
+retry_backoff_seconds = 1.0
+user_agent = "PersonalJobAlert/0.1 (personal use)"
+
+[telegram]
+enabled = true
+
+[matching]
+title_keywords = ["software engineer ii", "software development engineer ii", "sde ii", "sde 2", "backend engineer", "backend developer"]
+include_keywords = ["backend", "distributed systems", "api", "microservices"]
+exclude_title_keywords = ["intern", "internship", "staff", "principal", "director", "manager", "full stack", "full-stack"]
+exclude_keywords = []
+skills = ["python", "java", "golang", "go", "c++", "aws", "kubernetes"]
+locations = ["bengaluru", "bangalore", "remote", "india"]
+min_years = 1
+max_years = 5
+minimum_score = 4
+require_title_keyword = true
+allow_unknown_location = true
+
+# Copy and edit any of these examples. Only enabled sources are fetched.
+[[sources]]
+name = "Acme sample"
+type = "sample"
+path = "examples/sample_jobs.json"
+enabled = true
+
+[[sources]]
+name = "Example Greenhouse board"
+type = "greenhouse"
+board_token = "replace-with-board-token"
+enabled = false
+
+[[sources]]
+name = "Example Lever site"
+type = "lever"
+site = "replace-with-lever-site-name"
+enabled = false
+
+[[sources]]
+name = "Example JSON-LD careers page"
+type = "generic_html"
+url = "https://example.com/careers"
+company = "Example Company"
+enabled = false
+
+[[sources]]
+name = "Amazon Jobs"
+type = "amazon"
+search_queries = ["software development engineer ii", "backend engineer"]
+page_size = 50
+max_pages = 10
+enabled = false
