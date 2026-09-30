@@ -13,8 +13,8 @@ user_agent = "PersonalJobAlert/0.1 (personal use)"
 enabled = true
 
 [matching]
-title_keywords = ["software engineer ii", "software development engineer ii", "software dev engineer ii", "sde ii", "sde 2", "backend engineer", "backend software engineer", "backend developer"]
-include_keywords = ["backend", "distributed systems", "api", "microservices"]
+title_keywords = ["Enginner","software engineer","software engineer ii", "sde1","software development engineer ii", "software dev engineer ii", "sde ii", "sde 2", "backend engineer", "backend software engineer", "backend developer"]
+include_keywords = ["frontend","systems","ui","ai","backend", "distributed systems", "api", "microservices"]
 exclude_title_keywords = ["intern", "internship", "staff", "principal", "director", "manager", "full stack", "full-stack"]
 exclude_keywords = []
 skills = ["python", "java", "golang", "go", "c++", "aws", "kubernetes"]
