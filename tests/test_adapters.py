@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 from job_alert.adapters.amazon import AmazonAdapter
 from job_alert.adapters.generic_html import GenericHtmlAdapter
 from job_alert.adapters.greenhouse import GreenhouseAdapter
+from job_alert.adapters.lever import LeverAdapter
 
 
 class FakeHttp:
@@ -19,6 +20,21 @@ class FakeHttp:
 
 
 class AdapterTests(unittest.TestCase):
+    def test_cred_lever_mapping_includes_qualification_sections(self):
+        item = {
+            "id": "cred-job-1", "text": "Backend Engineer", "categories": {"location": "bengaluru"},
+            "hostedUrl": "https://jobs.lever.co/cred/cred-job-1",
+            "descriptionPlain": "Build backend APIs.",
+            "lists": [{"text": "Requirements", "content": "<ul><li>Python and 3+ years experience</li></ul>"}],
+            "additional": "<p>Work with CRED.</p>",
+        }
+        jobs = LeverAdapter({"name": "CRED", "site": "cred", "company": "CRED"}, FakeHttp([item])).fetch()
+        self.assertEqual(jobs[0].external_id, "cred-job-1")
+        self.assertEqual(jobs[0].company, "CRED")
+        self.assertEqual(jobs[0].url, item["hostedUrl"])
+        self.assertIn("3+ years experience", jobs[0].description)
+        self.assertIn("Work with CRED.", jobs[0].description)
+
     def test_amazon_pagination_and_india_mapping(self):
         class AmazonHttp:
             def get_json(self, url):

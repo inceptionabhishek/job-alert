@@ -155,6 +155,10 @@ python -m job_alert --config config.toml export-report --database /path/to/jobs.
 
 Reports re-evaluate every stored job against the **current** config and show the score and reasons. `saved_match` is the original persisted decision, while `current_match` reflects current rules. Exporting does not fetch sources, send notifications, change records or replay old alerts. CSV includes the full description, identifiers, first/last-seen timestamps, baseline and alert timestamps. CSV values that could act as spreadsheet formulas are prefixed with an apostrophe.
 
+## CRED source
+
+CRED is enabled through the existing Lever adapter (`site = "cred"`), using the public postings API linked to https://jobs.lever.co/cred. No API key or additional secret is required. On your already-initialized GitHub deployment, adding CRED does not reset the baseline or previous history: any currently available matching CRED jobs are sent once on the next run, then normal deduplication applies. Do not run `baseline-source CRED` if you want these existing matches. The September 30, 2026 feed test found eight published jobs and zero SDE2/backend matches; source availability does not guarantee matching openings. Full Lever qualification/responsibility sections are now included in the extracted JD.
+
 ## Tune matching
 
 Start with rejected jobs and inspect their reasons. Edit `[matching]` in `config.toml`, export again, and compare current versus saved decisions. Commit/push the config so Actions uses it. History and previous alerts are preserved; report re-evaluation is for review, not an automatic backfill of old rejected jobs.

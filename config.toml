@@ -27,6 +27,13 @@ allow_unknown_location = false
 
 # Copy and edit any of these examples. Only enabled sources are fetched.
 [[sources]]
+name = "CRED"
+type = "lever"
+site = "cred"
+company = "CRED"
+enabled = true
+
+[[sources]]
 name = "Acme sample"
 type = "sample"
 path = "examples/sample_jobs.json"

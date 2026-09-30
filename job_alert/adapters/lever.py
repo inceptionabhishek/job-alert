@@ -17,9 +17,11 @@ class LeverAdapter(SourceAdapter):
         jobs: list[Job] = []
         for item in payload:
             categories = item.get("categories") or {}
-            description = " ".join(
-                filter(None, [item.get("descriptionPlain"), item.get("additionalPlain")])
-            ) or plain_text(item.get("description"))
+            sections = [item.get("descriptionPlain") or plain_text(item.get("description"))]
+            for section in item.get("lists") or []:
+                sections.extend([section.get("text"), plain_text(section.get("content"))])
+            sections.append(item.get("additionalPlain") or plain_text(item.get("additional")))
+            description = "\n\n".join(str(section) for section in sections if section)
             jobs.append(Job(
                 source=self.name,
                 external_id=str(item.get("id", "")),
@@ -31,4 +33,3 @@ class LeverAdapter(SourceAdapter):
                 posted_date=None,
             ))
         return jobs
-

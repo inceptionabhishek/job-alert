@@ -9,6 +9,26 @@ from job_alert.runner import run
 
 
 class RunnerTests(unittest.TestCase):
+    def test_new_cred_source_alerts_existing_matches_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = Settings(
+                raw={"telegram": {"enabled": True}, "matching": {
+                    "title_keywords": ["backend engineer"], "skills": ["python"],
+                    "locations": ["bengaluru"], "minimum_score": 4,
+                }}, config_path=root / "config.toml", database_path=root / "jobs.db",
+                log_level="INFO", dry_run=False, telegram_token="fake-token", telegram_chat_id="fake-chat",
+                sources=[{"name": "CRED", "type": "lever", "site": "cred", "company": "CRED"}],
+            )
+            payload = [{"id": "existing-cred", "text": "Backend Engineer", "categories": {"location": "bengaluru"},
+                        "hostedUrl": "https://jobs.lever.co/cred/existing-cred", "descriptionPlain": "Python. 3+ years."}]
+            with patch("job_alert.http.HttpClient.get_json", return_value=payload), patch("job_alert.runner.TelegramNotifier") as notifier:
+                first = run(settings)
+                second = run(settings)
+                self.assertEqual((first.new, first.alerted), (1, 1))
+                self.assertEqual((second.new, second.alerted), (0, 0))
+                notifier.return_value.send.assert_called_once()
+
     def test_baseline_suppresses_existing_alerts_but_new_jobs_alert(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
