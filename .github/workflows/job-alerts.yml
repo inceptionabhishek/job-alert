@@ -4,6 +4,11 @@ on:
     - cron: '30 3 * * *'   # 09:00 IST (UTC +05:30)
     - cron: '30 14 * * *'  # 20:00 IST
   workflow_dispatch:
+    inputs:
+      send_digest:
+        description: 'Send queued matches now (otherwise just fetch and queue)'
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -17,6 +22,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      SEND_DIGEST: ${{ (github.event_name == 'schedule' && github.event.schedule == '30 14 * * *') || (github.event_name == 'workflow_dispatch' && inputs.send_digest) }}
     steps:
       - name: Configure state directory
         shell: bash
@@ -44,8 +50,14 @@ jobs:
             git -C "$STATE_DIR" fetch --depth=1 origin job-alert-state
             git -C "$STATE_DIR" checkout -B job-alert-state FETCH_HEAD
           fi
-      - name: Fetch jobs and send Telegram updates
-        run: python -m job_alert.scheduled --config config.toml --state-dir "$STATE_DIR"
+      - name: Fetch jobs, queue matches, and optionally deliver digest
+        shell: bash
+        run: |
+          args=()
+          if [ "$SEND_DIGEST" = 'true' ]; then
+            args+=(--send-digest)
+          fi
+          python -m job_alert.scheduled --config config.toml --state-dir "$STATE_DIR" "${args[@]}"
       - name: Save history even if a source or Telegram failed
         if: ${{ always() && steps.state.outcome == 'success' }}
         shell: bash

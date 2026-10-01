@@ -12,6 +12,14 @@ user_agent = "PersonalJobAlert/0.1 (personal use)"
 [telegram]
 enabled = true
 
+[digest]
+enabled = true
+
+[ranking]
+preferred_title_keywords = ["backend", "frontend", "full stack"]
+skills = ["python", "java", "aws", "go"]
+topics = ["api", "microservices", "distributed systems"]
+
 [matching]
 title_keywords = ["software engineer ii", "software development engineer ii", "sde ii", "sde 2", "backend engineer", "backend developer"]
 include_keywords = ["backend", "distributed systems", "api", "microservices"]

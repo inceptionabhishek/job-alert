@@ -10,6 +10,8 @@ from .http import HttpClient
 from .runner import run
 from .storage import JobStore
 from .report import export_report
+from .digest import send_digest
+from .notifier import TelegramNotifier
 
 
 def parser() -> argparse.ArgumentParser:
@@ -24,6 +26,7 @@ def parser() -> argparse.ArgumentParser:
     baseline = commands.add_parser("baseline-source", help="Save one source's current jobs without sending alerts")
     baseline.add_argument("source", help="Enabled source name")
     commands.add_parser("init-db", help="Create the SQLite database schema")
+    commands.add_parser("send-digest", help="Deliver queued jobs without fetching sources")
     report = commands.add_parser("export-report", help="Export saved jobs; no fetching, alerts, or database changes")
     report.add_argument("--database", help="SQLite snapshot to read instead of configured database")
     report.add_argument("--output", default="reports", help="Output directory")
@@ -45,11 +48,21 @@ def main(argv: list[str] | None = None) -> int:
         from pathlib import Path
         try:
             count = export_report(Path(args.database) if args.database else settings.database_path,
-                                  Path(args.output), settings.matching)
+                                  Path(args.output), settings.matching, settings.raw.get("ranking", {}))
         except (OSError, ValueError) as exc:
             print(f"Report error: {exc}", file=sys.stderr)
             return 2
         print(f"Exported {count} saved jobs to {args.output}/jobs.html and jobs.csv")
+        return 0
+    if args.command == "send-digest":
+        if settings.dry_run or not settings.telegram_enabled or not settings.telegram_token or not settings.telegram_chat_id:
+            print("Digest delivery requires Telegram credentials, enabled Telegram, and app.dry_run=false", file=sys.stderr)
+            return 2
+        store = JobStore(settings.database_path)
+        store.initialize()
+        store.enqueue_pending()
+        delivered = send_digest(settings, store, TelegramNotifier(settings.telegram_token, settings.telegram_chat_id, HttpClient(dict(settings.http, retries=0))))
+        print(f"Digest delivered: {delivered} job entries")
         return 0
     if args.command == "init-db":
         JobStore(settings.database_path).initialize()
@@ -82,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Run complete: fetched={summary.fetched} new={summary.new} "
         f"matched={summary.matched} alerted={summary.alerted} "
-        f"baselined={summary.baselined} errors={summary.errors}"
+        f"baselined={summary.baselined} newly_queued={summary.queued} errors={summary.errors}"
     )
     return 1 if summary.errors else 0
 

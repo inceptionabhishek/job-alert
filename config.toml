@@ -12,6 +12,15 @@ user_agent = "PersonalJobAlert/0.1 (personal use)"
 [telegram]
 enabled = true
 
+[digest]
+enabled = true # Morning queues only; evening sends. Set false for legacy individual alerts.
+
+[ranking]
+# Preference points never override eligibility: title +3, skills up to +4, topics up to +3.
+preferred_title_keywords = ["backend", "frontend", "front end", "full stack", "fullstack"]
+skills = ["python", "java", "golang", "go", "c++", "aws", "kubernetes"]
+topics = ["distributed systems", "api", "microservices"]
+
 [matching]
 title_keywords = ["software engineer", "software engineering", "software development engineer", "software dev engineer", "software developer", "sde", "sde1", "sde2", "swe", "backend engineer", "backend software engineer", "backend developer", "frontend engineer", "frontend developer", "front end engineer", "full stack engineer", "fullstack engineer", "full stack developer"]
 include_keywords = ["frontend","systems","ui","ai","backend", "distributed systems", "api", "microservices"]

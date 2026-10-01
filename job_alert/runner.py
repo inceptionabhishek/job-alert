@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 
 from .adapters import create_adapter
@@ -21,6 +21,8 @@ class RunSummary:
     alerted: int = 0
     baselined: int = 0
     errors: int = 0
+    queued: int = 0
+    failed_sources: list[str] = field(default_factory=list)
 
 
 def run(settings: Settings, *, dry_run: bool = False, only_source: str | None = None,
@@ -28,15 +30,16 @@ def run(settings: Settings, *, dry_run: bool = False, only_source: str | None = 
     if baseline and (dry_run or settings.dry_run or not only_source):
         raise ValueError("Baseline requires one source and a non-dry run")
     dry_run = dry_run or settings.dry_run
+    digest_enabled = bool(settings.raw.get("digest", {}).get("enabled", False))
     client = HttpClient(settings.http)
     store = JobStore(settings.database_path)
     database_exists = settings.database_path.exists()
     if not dry_run:
         store.initialize()
     notifier = None
-    if settings.telegram_enabled and settings.telegram_token and settings.telegram_chat_id and not dry_run and not baseline:
+    if settings.telegram_enabled and settings.telegram_token and settings.telegram_chat_id and not dry_run and not baseline and not digest_enabled:
         notifier = TelegramNotifier(settings.telegram_token, settings.telegram_chat_id, client)
-    elif settings.telegram_enabled and not dry_run and not baseline:
+    elif settings.telegram_enabled and not dry_run and not baseline and not digest_enabled:
         logger.warning("Telegram is enabled but TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID is missing; matches will only be logged")
 
     summary = RunSummary()
@@ -50,6 +53,7 @@ def run(settings: Settings, *, dry_run: bool = False, only_source: str | None = 
             logger.info("Fetched %d jobs from %s", len(jobs), source.get("name", source.get("type")))
         except Exception:
             summary.errors += 1
+            summary.failed_sources.append(str(source.get("name", source.get("type"))))
             logger.exception("Source failed: %s", source.get("name", source.get("type")))
             continue
         summary.fetched += len(jobs)
@@ -80,4 +84,7 @@ def run(settings: Settings, *, dry_run: bool = False, only_source: str | None = 
                 except Exception:
                     summary.errors += 1
                     logger.exception("Telegram alert failed for %s", job.url)
+    if digest_enabled and not dry_run and not baseline:
+        summary.queued = store.enqueue_pending()
+        store.record_check(summary.failed_sources)
     return summary

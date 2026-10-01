@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from .matching import match_job, extract_years
 from .models import Job
+from .ranking import rank_job
 
 
 def csv_value(value):
@@ -18,12 +19,14 @@ def csv_value(value):
     return "'" + text if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n")) else text
 
 
-def report_rows(database: Path, matching: dict) -> list[dict]:
+def report_rows(database: Path, matching: dict, ranking: dict | None = None) -> list[dict]:
     if not database.is_file():
         raise ValueError(f"Database not found: {database}")
     with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as connection:
         connection.row_factory = sqlite3.Row
         saved = connection.execute("SELECT * FROM jobs ORDER BY first_seen_at DESC, company, title").fetchall()
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        queued = {row[0] for row in connection.execute("SELECT dedup_key FROM digest_queue")} if "digest_queue" in tables else set()
     rows = []
     for record in saved:
         row = dict(record)
@@ -31,6 +34,7 @@ def report_rows(database: Path, matching: dict) -> list[dict]:
             "source", "external_id", "title", "company", "location", "url", "description", "posted_date"
         )})
         result = match_job(job, matching)
+        preference = rank_job(job, ranking or {})
         years = extract_years(job.description)
         rows.append({
             "title": job.title, "company": job.company, "location": job.location,
@@ -39,16 +43,23 @@ def report_rows(database: Path, matching: dict) -> list[dict]:
             "first_seen_at": row["first_seen_at"], "last_seen_at": row["last_seen_at"],
             "current_match": "yes" if result.matched else "no",
             "saved_match": "yes" if row["matched"] else "no", "score": result.score,
+            "preference_score": preference.score,
+            "preference_reasons": "; ".join(preference.reasons),
             "reasons": "; ".join(result.reasons),
             "experience": f"{years[0]}-{years[1]} years" if years and years[1] is not None else f"{years[0]}+ years" if years else "unknown",
-            "status": "alerted" if row["alerted_at"] else "baseline" if row.get("baselined_at") else "not alerted",
+            "status": "delivered" if row["alerted_at"] else "baseline" if row.get("baselined_at") else "queued" if row["dedup_key"] in queued else "not alerted",
             "alerted_at": row["alerted_at"] or "", "baselined_at": row.get("baselined_at") or "",
         })
+    rows.sort(key=lambda row: (row["current_match"] != "yes", -row["preference_score"], row["company"].casefold(), row["title"].casefold()))
+    for index, row in enumerate((row for row in rows if row["current_match"] == "yes"), 1):
+        row["rank"] = index
+    for row in rows:
+        row.setdefault("rank", "")
     return rows
 
 
 FIELDS = ["title", "company", "location", "source", "job_id", "url", "current_match", "saved_match",
-          "score", "reasons", "experience", "status", "posted_date", "first_seen_at", "last_seen_at",
+          "score", "reasons", "rank", "preference_score", "preference_reasons", "experience", "status", "posted_date", "first_seen_at", "last_seen_at",
           "alerted_at", "baselined_at", "description"]
 
 
@@ -60,7 +71,9 @@ def render_html(rows: list[dict]) -> str:
                 if urlsplit(row["url"]).scheme.lower() in ("http", "https") else "No safe application URL")
         cards.append(f'''<article data-match="{e('current_match')}" data-source="{e('source')}" data-location="{e('location')}" data-status="{e('status')}">
 <h2>{e('title')}</h2><p>{e('company')} · {e('location')} · {e('source')}</p>
-<p>Current match: {e('current_match')} · Saved match: {e('saved_match')} · Score: {e('score')} · {e('status')}</p>
+<p>Eligible now: {e('current_match')} · Saved match: {e('saved_match')} · Eligibility score: {e('score')} · {e('status')}</p>
+<p>Rank: {e('rank') or 'not eligible'} · Preference score: {e('preference_score')}/10 (not a hiring probability)</p>
+<p class="reason">Preference breakdown: {e('preference_reasons')}</p>
 <p class="reason">{e('reasons')}</p><p>Experience: {e('experience')} · Posted: {e('posted_date') or 'unknown'}</p>
 <p>First seen (UTC): {e('first_seen_at')} · Last seen (UTC): {e('last_seen_at')}</p>{link}
 <details><summary>Full job description</summary><pre>{e('description')}</pre></details></article>''')
@@ -81,7 +94,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.5}p{o
 <label>Match <select id="match"><option value="yes">Matching jobs</option><option value="">All jobs</option><option value="no">Rejected jobs</option></select></label>
 <label>Source <select id="source"><option value="">All sources</option></select></label>
 <label>Location <select id="location"><option value="">All locations</option></select></label>
-<label>Status <select id="status"><option value="">All statuses</option><option>baseline</option><option>alerted</option><option>not alerted</option></select></label>
+<label>Status <select id="status"><option value="">All statuses</option><option>baseline</option><option>delivered</option><option>queued</option><option>not alerted</option></select></label>
 <p id="count" role="status"></p></div><main>''' + "\n".join(cards) + '''</main>
 <script>
 const cards=[...document.querySelectorAll('article')], keys=['match','source','location','status'];
@@ -96,8 +109,8 @@ document.getElementById('reset').addEventListener('click',()=>{document.getEleme
 </script></html>'''
 
 
-def export_report(database: Path, output: Path, matching: dict) -> int:
-    rows = report_rows(database, matching)
+def export_report(database: Path, output: Path, matching: dict, ranking: dict | None = None) -> int:
+    rows = report_rows(database, matching, ranking)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "jobs.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=FIELDS)
