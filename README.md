@@ -2,6 +2,20 @@
 
 A small, dependency-free Python service that checks configured career feeds, remembers jobs in SQLite, applies transparent rules, and sends only new matches to Telegram. It uses no LLM or paid API.
 
+## Telegram screenshots
+
+### Daily digest with explainable ranking
+
+New matching jobs are delivered in a compact digest with preference scores, point-by-point explanations, and application links. When nothing new is queued, the bot sends a short empty-result message.
+
+<img src="docs/images/ss2.png" alt="Telegram daily digest showing two ranked Safe Security jobs with score explanations, followed by a no-new-jobs message" width="650">
+
+### Individual job alert (earlier delivery format)
+
+An example of the individual alert format, including the job title, location, matching reasons, description, and application link. The current configuration uses daily digests instead; individual alerts remain available with digest mode disabled.
+
+<img src="docs/images/ss1.png" alt="Individual Telegram alert for an Amazon Software Development Engineer role with job description and application link" width="650">
+
 ## What it supports
 
 - Greenhouse public job-board API
